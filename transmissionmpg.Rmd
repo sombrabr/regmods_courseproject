@@ -4,6 +4,10 @@ author: "Eduardo Bortoluzzi Junior"
 date: "November 15, 2015"
 output: pdf_document
 ---
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE, message=FALSE, 
+                      results='hide', fig.show='hide')
+```
 
 <!--
 You work for Motor Trend, a magazine about the automobile industry. Looking at a 
@@ -94,20 +98,6 @@ str(mtcars)
 The data set *mtcars* has information on fuel consumption and 10 aspects of
 automobile design and performance for 32 automobiles models of 1973 and 1974.
 
-The following variables are available:
-
-* mpg: miles per US gallon
-* cyl: number of cylinders
-* disp: the engine displacement, cu.in.
-* hp: the gross horsepower
-* drat: rear axle ratio
-* wt: the weight in lb/1000
-* qsec: 1/4 mile time
-* vs: the engine construction (0 for in V, 1 for straight)
-* am: transmission (0 for automatic, 1 for manual)
-* gear: number of forward gears
-* carb: number of carburetors
-
 From physics, force (F) is defined as $F = m * a$, where *m* is mass and *a* is
 acceleration; work (W) as $W = F * s$, where *s* is the displacement of the
 object and energy (E) is needed to produce the work
@@ -120,16 +110,75 @@ displacement is highly dependent on the automobile mass. In this analysis, the
 automobile weight `wt` will be used as the basis, and some other engine
 variables will be selected for this model.
 
+The starting model is below:
 
+```{r echo=TRUE}
+fit <- lm(mpg ~ wt, mtcars)
+```
 
-The plot 1 shows the relation of the variables *disp*, *hp* and *wt* to *mpg*,
-grouped by *am*.
+Using nested likelihood ratio tests, the adition of the variables about the 
+engine construction will be tested on the hypothesis that the adition is not
+significant to the anterior model.
+
+```{r results='hold'}
+fit1 <- update(fit, mpg ~ ( wt + hp) )
+fit2 <- update(fit, mpg ~ ( wt + hp + disp) )
+fit3 <- update(fit, mpg ~ ( wt + hp + disp + cyl) )
+
+anova(fit, fit1, fit2, fit3)
+```
+
+Only the adition of gross horsepower (`hp`) is significant for the analysis, so
+the model `lm(mpg ~ wt + hp, mtcars)` is used in this analysis. The plot1
+shows the residuals of this model, and there are some outliers that is
+influencing the model.
 
 ```{r}
-p1 <- ggplot(mtcars, aes(disp, mpg, colour=factor(am))) + geom_point() + geom_smooth(method="lm")
-p2 <- ggplot(mtcars, aes(hp, mpg, colour=factor(am))) + geom_point() + geom_smooth(method="lm")
-p3 <- ggplot(mtcars, aes(wt, mpg, colour=factor(am))) + geom_point() + geom_smooth(method="lm")
+PRESS <- data.frame(press=resid(fit1) / (1 - hatvalues(fit1)))
+rownames(PRESS) <- rownames(mtcars)
 
-multiplot(p1, p2, p3, cols=2)
+PRESS.mean <- mean(PRESS$press)
+PRESS.sd <- sd(PRESS$press)
 
+boundaries <- qnorm(c(0.025, 0.975), mean=PRESS.mean, sd=PRESS.sd)
+
+sub <- subset(PRESS, PRESS$press < boundaries[1] | PRESS$press > boundaries[2])
+
+mtcars.n <- mtcars[!(rownames(mtcars) %in% rownames(sub)),]
+
+fit1.n <- lm(mpg ~ wt + hp, mtcars.n)
+```
+
+Removing the observations which PRESS residuals is out of the 95% of the normal
+density, which are `r rownames(sub)`, the new residuals will be those in plot2.
+
+With this final fitted model, the regression lines for the cars with automatic
+transmission and for the cars with manual transmission are extracted.
+
+```{r}
+fit.am <- lm(mpg ~ factor(am) * (wt + hp), mtcars.n)
+coef.fit.am <- summary(fit.am)$coef
+
+```
+
+```{r}
+fit.a <- lm(mpg ~ wt + hp, mtcars.n[mtcars.n$am==0,])
+fit.m <- lm(mpg ~ wt + hp, mtcars.n[mtcars.n$am==1,])
+```
+
+```{r}
+fit.a <- lm(mpg ~ I(wt - mean(wt)) + I(hp - mean(hp)), mtcars.n[mtcars.n$am==0,])
+fit.m <- lm(mpg ~ I(wt - mean(wt)) + I(hp - mean(hp)), mtcars.n[mtcars.n$am==1,])
+```
+
+# Appendix
+
+## plot1
+```{r plot1, fig.show='asis'}
+plot(fit1, which=1)
+```
+
+## plot2
+```{r plot2, fig.show='asis'}
+plot(fit1.n, which=1)
 ```
