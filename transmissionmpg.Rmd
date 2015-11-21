@@ -37,6 +37,22 @@ regression models and exploratory data analyses.
 
 -->
 
+# Summary
+
+This report describes the fuel consumption change between automobiles with manual
+and automatic transmissions. This report was produced with automobile 
+information extracted from the 1974 Motor Trend US magazine. As it is seen in 
+the analysis, the fuel consumption is highly correlated to the weight of the
+automobile and, in a lower level, to the gross horsepower, than any other
+variable, so it was not conclusive if manual transmission cars has higher mpg
+than the automatic ones.
+
+The source code for the report is available at 
+[this link][source].
+
+[source]: https://github.com/sombrabr/regmods_courseproject/blob/master/transmissionmpg.Rmd
+
+# Analysis
 
 ```{r}
 require(ggplot2)
@@ -92,6 +108,7 @@ multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
 
 
 ```{r}
+data(mtcars)
 str(mtcars)
 ```
 
@@ -106,34 +123,34 @@ process.
 
 For the internal combustion engine, the mechanical energy is produced by the
 combustion of the fuel. So, the amount of combustion needed to make a automobile
-displacement is highly dependent on the automobile mass. In this analysis, the
-automobile weight `wt` will be used as the basis, and some other engine
-variables will be selected for this model.
+displacement will be highly dependent on the automobile mass.
 
-The starting model is below:
+The plot1 has some observations related to the mpg. By the plot, it seems that
+manual transmission has higher mpg than automatic one, but it does not correlate
+other variables.
 
-```{r echo=TRUE}
-fit <- lm(mpg ~ wt, mtcars)
-```
-
-Using nested likelihood ratio tests, the adition of the variables about the 
-engine construction will be tested on the hypothesis that the adition is not
+Using nested likelihood ratio tests, the addition of the variables about the 
+engine construction will be tested on the hypothesis that the addition is not
 significant to the anterior model.
 
 ```{r results='hold'}
-fit1 <- update(fit, mpg ~ ( wt + hp) )
-fit2 <- update(fit, mpg ~ ( wt + hp + disp) )
-fit3 <- update(fit, mpg ~ ( wt + hp + disp + cyl) )
+fit0 <- lm(mpg ~ 1, mtcars)
+fit1 <- update(fit0, ~ . + wt)
+fit2 <- update(fit1, ~ . + hp)
+fit3 <- update(fit2, ~ . + disp)
+fit4 <- update(fit3, ~ . + cyl)
 
-anova(fit, fit1, fit2, fit3)
+anova(fit0, fit1, fit2, fit3, fit4)
 ```
 
-Only the adition of gross horsepower (`hp`) is significant for the analysis, so
-the model `lm(mpg ~ wt + hp, mtcars)` is used in this analysis. The plot1
-shows the residuals of this model, and there are some outliers that is
-influencing the model.
+Only the addition of weight (`wt`) and gross horsepower (`hp`) are significant 
+for the analysis, so the model `lm(mpg ~ wt + hp, mtcars)` is used in this
+analysis. The plot2 shows the residuals of this model, and there are some
+outliers that is influencing the model.
 
 ```{r}
+fit <- lm(mpg ~ wt + hp, mtcars)
+
 PRESS <- data.frame(press=resid(fit1) / (1 - hatvalues(fit1)))
 rownames(PRESS) <- rownames(mtcars)
 
@@ -146,39 +163,79 @@ sub <- subset(PRESS, PRESS$press < boundaries[1] | PRESS$press > boundaries[2])
 
 mtcars.n <- mtcars[!(rownames(mtcars) %in% rownames(sub)),]
 
-fit1.n <- lm(mpg ~ wt + hp, mtcars.n)
+fit.n <- lm(mpg ~ wt + hp, mtcars.n)
 ```
 
 Removing the observations which PRESS residuals is out of the 95% of the normal
-density, which are `r rownames(sub)`, the new residuals will be those in plot2.
+density, which are `r rownames(sub)`, the new residuals will be those in plot3.
 
-With this final fitted model, the regression lines for the cars with automatic
-transmission and for the cars with manual transmission are extracted.
+Now, adding the transmission information (*am*) to this model, the influence of
+the type of the transmission is below:
 
-```{r}
-fit.am <- lm(mpg ~ factor(am) * (wt + hp), mtcars.n)
-coef.fit.am <- summary(fit.am)$coef
+```{r results='hold'}
+fit.am <- update(fit.n, ~ . + factor(am))
+summ.am <- summary(fit.am)
+confint.am <- confint(fit.am)
 
+summ.am
+confint.am
 ```
 
-```{r}
-fit.a <- lm(mpg ~ wt + hp, mtcars.n[mtcars.n$am==0,])
-fit.m <- lm(mpg ~ wt + hp, mtcars.n[mtcars.n$am==1,])
-```
+* `r round(summ.am$r.squared * 100, 2)`% is the percentage of the total 
+  variability that is explained by this model.
+* `r round(summ.am$coefficients["factor(am)1","Estimate"], 2)`, varying from 
+  `r round(confint.am["factor(am)1",1], 2)` to 
+  `r round(confint.am["factor(am)1",2], 2)` defines the increase on mpg when 
+  manual transmission is considered, and it is seen that
+  it can increase or decrease the mpg in the confidence interval. Also, as the
+  probability of getting values as extreme as 
+  `r round(summ.am$coefficients["factor(am)1","t value"], 2)` is high 
+  (`r round(summ.am$coefficients["factor(am)1","Pr(>|t|)"] * 100, 2)`%), we fail 
+  to reject the hypothesis of automatic transmission having less full 
+  consumption.
+* As the weight variable is very significant, it is seen that mpg is more
+  correlated to this variable.
+  
+# Conclusions
 
-```{r}
-fit.a <- lm(mpg ~ I(wt - mean(wt)) + I(hp - mean(hp)), mtcars.n[mtcars.n$am==0,])
-fit.m <- lm(mpg ~ I(wt - mean(wt)) + I(hp - mean(hp)), mtcars.n[mtcars.n$am==1,])
-```
+It is not conclusive whether manual or automatic has better MPG. The analysis
+shows that the weight has higher correlation to the MPG.
+  
 
 # Appendix
 
 ## plot1
-```{r plot1, fig.show='asis'}
-plot(fit1, which=1)
+```{r plot1, fig.show='asis', fig.height=6}
+g1 <- ggplot(mtcars, aes(wt, mpg)) +
+      geom_point(alpha=.5) +
+      geom_smooth(method="lm") +
+      ggtitle("mpg X wt")
+
+g2 <- ggplot(mtcars, aes(hp, mpg)) +
+      geom_point(alpha=.5) +
+      geom_smooth(method="lm") +
+      ggtitle("mpg X hp")
+
+g3 <- ggplot(mtcars, aes(disp, mpg)) +
+      geom_point(alpha=.5) +
+      geom_smooth(method="lm") +
+      ggtitle("mpg X disp")
+
+g4 <- ggplot(mtcars, aes(factor(am), mpg)) +
+      geom_boxplot() +
+      scale_x_discrete(labels=c("Automatic", "Manual")) +
+      ggtitle("mpg X am")
+
+multiplot(g1, g2, g3, g4, cols=2)
 ```
+
 
 ## plot2
 ```{r plot2, fig.show='asis'}
-plot(fit1.n, which=1)
+plot(fit, which=1)
+```
+
+## plot3
+```{r plot3, fig.show='asis'}
+plot(fit.n, which=1)
 ```
