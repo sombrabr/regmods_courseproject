@@ -11,7 +11,7 @@ data set of a collection of cars, they are interested in exploring the
 relationship between a set of variables and miles per gallon (MPG) (outcome). 
 They are particularly interested in the following two questions:
 
-* “Is an automatic or manual transmission better for MPG”
+* "Is an automatic or manual transmission better for MPG"
 * "Quantify the MPG difference between automatic and manual transmissions"
 
 Take the mtcars data set and write up an analysis to answer their question using 
@@ -33,9 +33,103 @@ regression models and exploratory data analyses.
 
 -->
 
-```{r echo=FALSE, eval=TRUE, results='hide'}
-str(mtcars)
 
-
+```{r}
+require(ggplot2)
 ```
 
+```{r}
+# Multiple plot function
+#
+# ggplot objects can be passed in ..., or to plotlist (as a list of ggplot objects)
+# - cols:   Number of columns in layout
+# - layout: A matrix specifying the layout. If present, 'cols' is ignored.
+#
+# If the layout is something like matrix(c(1,2,3,3), nrow=2, byrow=TRUE),
+# then plot 1 will go in the upper left, 2 will go in the upper right, and
+# 3 will go all the way across the bottom.
+#
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  library(grid)
+
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+
+  numPlots = length(plots)
+
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                    ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+
+ if (numPlots==1) {
+    print(plots[[1]])
+
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+```
+
+
+```{r}
+str(mtcars)
+```
+
+The data set *mtcars* has information on fuel consumption and 10 aspects of
+automobile design and performance for 32 automobiles models of 1973 and 1974.
+
+The following variables are available:
+
+* mpg: miles per US gallon
+* cyl: number of cylinders
+* disp: the engine displacement, cu.in.
+* hp: the gross horsepower
+* drat: rear axle ratio
+* wt: the weight in lb/1000
+* qsec: 1/4 mile time
+* vs: the engine construction (0 for in V, 1 for straight)
+* am: transmission (0 for automatic, 1 for manual)
+* gear: number of forward gears
+* carb: number of carburetors
+
+From physics, force (F) is defined as $F = m * a$, where *m* is mass and *a* is
+acceleration; work (W) as $W = F * s$, where *s* is the displacement of the
+object and energy (E) is needed to produce the work
+($\partial W = \partial Q - dE$). Some heat (Q) is also produced in this
+process.
+
+For the internal combustion engine, the mechanical energy is produced by the
+combustion of the fuel. So, the amount of combustion needed to make a automobile
+displacement is highly dependent on the automobile mass. In this analysis, the
+automobile weight `wt` will be used as the basis, and some other engine
+variables will be selected for this model.
+
+
+
+The plot 1 shows the relation of the variables *disp*, *hp* and *wt* to *mpg*,
+grouped by *am*.
+
+```{r}
+p1 <- ggplot(mtcars, aes(disp, mpg, colour=factor(am))) + geom_point() + geom_smooth(method="lm")
+p2 <- ggplot(mtcars, aes(hp, mpg, colour=factor(am))) + geom_point() + geom_smooth(method="lm")
+p3 <- ggplot(mtcars, aes(wt, mpg, colour=factor(am))) + geom_point() + geom_smooth(method="lm")
+
+multiplot(p1, p2, p3, cols=2)
+
+```
